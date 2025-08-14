@@ -60,9 +60,9 @@ Busines KPIs,Sales,Business,Rolling 3M Pipeline $000s (end of quarter),,,,,,
 Busines KPIs,Sales,Business,Pipeline Coverage (end of quarter),,,,,,
 Busines KPIs,Sales,Business,# of slipped deals,Decrease,4,1,1,3,
 Busines KPIs,Support,Lead,Time to first response (hrs),Decrease,8,8,6,9,
-Busines KPIs,Support,Lead,KB Article Views,Increase,,,,,
-Busines KPIs,Support,Lead,CSAT,Increase,,,,,
-Busines KPIs,Support,Lag,% of cases closed in < 1 day,Increase,,,,,
+Busines KPIs,Support,Lead,KB Article Views,Increase,500,125,150,160,
+Busines KPIs,Support,Lead,CSAT,Increase,4.9,4.9,4.8,4.5,
+Busines KPIs,Support,Lag,% of cases closed in < 1 day,Increase,80%,80%,85%,90%,
 Busines KPIs,Support,Lag,Mean TTY (time to resolution),,,,,,
 Busines KPIs,Support,Lead,Backlog,Decrease,100,100,120,150,The backlog remains challenging to manage due to problems with the drivers’ app.
 4DX,Marketing,WIG,Deliver 261 MQLs by end of Q3,SQLs,500,261,230,0,Last quarter we didn't have a WIG defined
