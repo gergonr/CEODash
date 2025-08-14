@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Performance Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .dashboard-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 15px 30px;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            font-size: 1em;
+            font-weight: 600;
+            color: #6c757d;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            position: relative;
+        }
+
+        .tab:hover {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+        }
+
+        .tab.active {
+            color: #667eea;
+            background: white;
+        }
+
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .tab-content {
+            padding: 30px;
+            min-height: 500px;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .function-section {
+            margin-bottom: 40px;
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+            border: 1px solid #e9ecef;
+        }
+
+        .function-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f1f3f5;
+        }
+
+        .function-title {
+            font-size: 1.4em;
+            font-weight: 700;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+        }
+
+        .function-icon {
+            width: 35px;
+            height: 35px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2em;
+        }
+
+        .insights-btn {
+            padding: 8px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .insights-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .metric-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #e9ecef;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .metric-card.positive::before {
+            background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+        }
+
+        .metric-card.negative::before {
+            background: linear-gradient(90deg, #ef4444 0%, #f87171 100%);
+        }
+
+        .metric-name {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-bottom: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-size: 2.2em;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .metric-progress {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 8px;
+            background: #f1f3f5;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-right: 15px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            transition: width 1s ease;
+        }
+
+        .progress-fill.positive {
+            background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+        }
+
+        .progress-fill.negative {
+            background: linear-gradient(90deg, #ef4444 0%, #f87171 100%);
+        }
+
+        .metric-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 0.85em;
+        }
+
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .detail-label {
+            color: #6c757d;
+            margin-bottom: 2px;
+        }
+
+        .detail-value {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .trend-indicator {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .trend-up {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .trend-down {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .insights-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .insights-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .insights-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f1f3f5;
+        }
+
+        .insights-title {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            color: #6c757d;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .close-btn:hover {
+            color: #2c3e50;
+        }
+
+        .insight-item {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .insight-metric {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .wildly-important-goal {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(251, 191, 36, 0.3);
+        }
+
+        .wig-title {
+            font-size: 1.8em;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .wig-description {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+
+        .scoreboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .score-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .score-card.winning {
+            border-color: #10b981;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(52, 211, 153, 0.05) 100%);
+        }
+
+        .score-card.losing {
+            border-color: #ef4444;
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(248, 113, 113, 0.05) 100%);
+        }
+
+        .score-value {
+            font-size: 2.5em;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .score-label {
+            color: #6c757d;
+            font-weight: 600;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 100px;
+            font-size: 1.2em;
+            color: #6c757d;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="header">
+            <h1>📊 Business Performance Dashboard</h1>
+            <p>Real-time insights and KPI tracking</p>
+        </div>
+        
+        <div class="tabs" id="tabsContainer">
+            <!-- Tabs will be dynamically generated -->
+        </div>
+        
+        <div class="tab-content" id="tabContent">
+            <div class="loading">Loading dashboard data</div>
+        </div>
+    </div>
+
+    <div class="insights-modal" id="insightsModal">
+        <div class="insights-content">
+            <div class="insights-header">
+                <h2 class="insights-title">AI-Generated Insights</h2>
+                <button class="close-btn" onclick="closeInsights()">&times;</button>
+            </div>
+            <div id="insightsBody">
+                <!-- Insights will be dynamically generated -->
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script>
+        let dashboardData = [];
+        let currentTab = '';
+
+        // Load and parse CSV data
+        async function loadDashboardData() {
+            try {
+                const response = await fetch('Dashboard.csv');
+                const csvText = await response.text();
+                
+                const parsed = Papa.parse(csvText, {
+                    header: true,
+                    dynamicTyping: true,
+                    skipEmptyLines: true
+                });
+                
+                // Clean headers
+                dashboardData = parsed.data.map(row => {
+                    const cleanRow = {};
+                    Object.keys(row).forEach(key => {
+                        cleanRow[key.trim()] = row[key];
+                    });
+                    return cleanRow;
+                });
+                
+                initializeDashboard();
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                document.getElementById('tabContent').innerHTML = 
+                    '<div class="no-data">Error loading dashboard data. Please ensure Dashboard.csv is in the same directory.</div>';
+            }
+        }
+
+        function initializeDashboard() {
+            const tabs = [...new Set(dashboardData.map(row => row.Tab))].filter(Boolean);
+            
+            // Generate tabs
+            const tabsContainer = document.getElementById('tabsContainer');
+            tabsContainer.innerHTML = tabs.map((tab, index) => 
+                `<button class="tab ${index === 0 ? 'active' : ''}" onclick="switchTab('${tab}')">${tab}</button>`
+            ).join('');
+            
+            // Load first tab
+            if (tabs.length > 0) {
+                switchTab(tabs[0]);
+            }
+        }
+
+        function switchTab(tabName) {
+            currentTab = tabName;
+            
+            // Update active tab
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.toggle('active', tab.textContent === tabName);
+            });
+            
+            // Filter data for current tab
+            const tabData = dashboardData.filter(row => row.Tab === tabName);
+            
+            // Special rendering for different tabs
+            if (tabName === '4DX') {
+                render4DXTab(tabData);
+            } else if (tabName === 'Key initiatives') {
+                renderKeyInitiativesTab(tabData);
+            } else {
+                renderStandardTab(tabData);
+            }
+        }
+
+        function renderStandardTab(data) {
+            const functions = [...new Set(data.map(row => row.Function))].filter(Boolean);
+            
+            let html = '';
+            
+            functions.forEach(func => {
+                const functionData = data.filter(row => row.Function === func);
+                
+                html += `
+                    <div class="function-section">
+                        <div class="function-header">
+                            <div class="function-title">
+                                <div class="function-icon">${getFunctionIcon(func)}</div>
+                                ${func}
+                            </div>
+                            <button class="insights-btn" onclick="showInsights('${func}')">
+                                ✨ Show Insights
+                            </button>
+                        </div>
+                        <div class="metrics-grid">
+                            ${functionData.map(metric => renderMetricCard(metric)).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('tabContent').innerHTML = html || '<div class="no-data">No data available for this tab</div>';
+        }
+
+        function renderMetricCard(metric) {
+            if (!metric['Current Qtr Actual'] && metric['Current Qtr Actual'] !== 0) {
+                return `
+                    <div class="metric-card">
+                        <div class="metric-name">${metric.Metric}</div>
+                        <div class="no-data">No data available</div>
+                    </div>
+                `;
+            }
+            
+            const current = parseValue(metric['Current Qtr Actual']);
+            const goal = parseValue(metric['Quarterly Goal']);
+            const previous = parseValue(metric['Previous Period']);
+            const isPercentage = String(metric['Current Qtr Actual']).includes('%');
+            
+            let progress = 0;
+            let status = 'neutral';
+            
+            if (goal && current !== null) {
+                if (metric['Goal Intent'] === 'Increase') {
+                    progress = Math.min((current / goal) * 100, 100);
+                    status = current >= goal ? 'positive' : 'negative';
+                } else if (metric['Goal Intent'] === 'Decrease') {
+                    progress = Math.min((goal / current) * 100, 100);
+                    status = current <= goal ? 'positive' : 'negative';
+                }
+            }
+            
+            const trend = previous !== null ? (current > previous ? 'up' : 'down') : null;
+            
+            return `
+                <div class="metric-card ${status}">
+                    <div class="metric-name">${metric.Metric}</div>
+                    <div class="metric-value">
+                        ${formatValue(current, isPercentage)}
+                        ${trend ? `<span class="trend-indicator trend-${trend}">${trend === 'up' ? '↑' : '↓'}</span>` : ''}
+                    </div>
+                    <div class="metric-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill ${status}" style="width: ${progress}%"></div>
+                        </div>
+                        <span>${Math.round(progress)}%</span>
+                    </div>
+                    <div class="metric-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Goal</span>
+                            <span class="detail-value">${formatValue(goal, isPercentage)}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Previous</span>
+                            <span class="detail-value">${formatValue(previous, isPercentage)}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function render4DXTab(data) {
+            const functions = [...new Set(data.map(row => row.Function))].filter(Boolean);
+            
+            let html = `
+                <div class="wildly-important-goal">
+                    <div class="wig-title">🎯 Wildly Important Goals</div>
+                    <div class="wig-description">Focus on what matters most - The 4 Disciplines of Execution</div>
+                </div>
+            `;
+            
+            functions.forEach(func => {
+                const functionData = data.filter(row => row.Function === func);
+                
+                html += `
+                    <div class="function-section">
+                        <div class="function-header">
+                            <div class="function-title">
+                                <div class="function-icon">${getFunctionIcon(func)}</div>
+                                ${func} - WIG Scoreboard
+                            </div>
+                            <button class="insights-btn" onclick="showInsights('${func}')">
+                                ✨ Show Insights
+                            </button>
+                        </div>
+                        <div class="scoreboard">
+                            ${functionData.map(metric => render4DXScoreCard(metric)).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('tabContent').innerHTML = html;
+        }
+
+        function render4DXScoreCard(metric) {
+            if (!metric['Current Qtr Actual'] && metric['Current Qtr Actual'] !== 0) {
+                return `
+                    <div class="score-card">
+                        <div class="metric-name">${metric.Metric}</div>
+                        <div class="no-data">No data available</div>
+                    </div>
+                `;
+            }
+            
+            const current = parseValue(metric['Current Qtr Actual']);
+            const goal = parseValue(metric['Quarterly Goal']);
+            const isPercentage = String(metric['Current Qtr Actual']).includes('%');
+            
+            let status = 'neutral';
+            if (goal && current !== null) {
+                if (metric['Goal Intent'] === 'Increase') {
+                    status = current >= goal ? 'winning' : 'losing';
+                } else if (metric['Goal Intent'] === 'Decrease') {
+                    status = current <= goal ? 'winning' : 'losing';
+                }
+            }
+            
+            return `
+                <div class="score-card ${status}">
+                    <div class="score-value">${formatValue(current, isPercentage)}</div>
+                    <div class="score-label">${metric.Metric}</div>
+                    <div style="margin-top: 10px; font-size: 0.9em; color: #6c757d;">
+                        Goal: ${formatValue(goal, isPercentage)}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderKeyInitiativesTab(data) {
+            const functions = [...new Set(data.map(row => row.Function))].filter(Boolean);
+            
+            let html = `
+                <div class="wildly-important-goal" style="background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);">
+                    <div class="wig-title">🚀 Key Strategic Initiatives</div>
+                    <div class="wig-description">Transform vision into measurable results</div>
+                </div>
+            `;
+            
+            functions.forEach(func => {
+                const functionData = data.filter(row => row.Function === func);
+                
+                html += `
+                    <div class="function-section">
+                        <div class="function-header">
+                            <div class="function-title">
+                                <div class="function-icon">${getFunctionIcon(func)}</div>
+                                ${func} - Initiative Progress
+                            </div>
+                            <button class="insights-btn" onclick="showInsights('${func}')">
+                                ✨ Show Insights
+                            </button>
+                        </div>
+                        <div class="metrics-grid">
+                            ${functionData.map(metric => renderInitiativeCard(metric)).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('tabContent').innerHTML = html;
+        }
+
+        function renderInitiativeCard(metric) {
+            if (!metric['Current Qtr Actual'] && metric['Current Qtr Actual'] !== 0) {
+                return `
+                    <div class="metric-card">
+                        <div class="metric-name">${metric.Metric}</div>
+                        <div class="no-data">Initiative not yet started</div>
+                    </div>
+                `;
+            }
+            
+            const current = parseValue(metric['Current Qtr Actual']);
+            const goal = parseValue(metric['Quarterly Goal']);
+            const isPercentage = String(metric['Current Qtr Actual']).includes('%');
+            
+            let progress = 0;
+            let status = 'neutral';
+            
+            if (goal && current !== null) {
+                progress = Math.min((current / goal) * 100, 100);
+                status = progress >= 100 ? 'positive' : progress >= 70 ? 'neutral' : 'negative';
+            }
+            
+            return `
+                <div class="metric-card ${status}">
+                    <div class="metric-name">📌 ${metric.Metric}</div>
+                    <div style="margin: 15px 0;">
+                        <div class="progress-bar" style="height: 12px;">
+                            <div class="progress-fill ${status}" style="width: ${progress}%"></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+                            <span style="font-weight: 600;">${formatValue(current, isPercentage)}</span>
+                            <span style="color: #6c757d;">Target: ${formatValue(goal, isPercentage)}</span>
+                        </div>
+                    </div>
+                    <div style="text-align: center; font-size: 1.8em; font-weight: 700; color: ${status === 'positive' ? '#10b981' : status === 'negative' ? '#ef4444' : '#f59e0b'};">
+                        ${Math.round(progress)}% Complete
+                    </div>
+                </div>
+            `;
+        }
+
+        function showInsights(functionName) {
+            const functionData = dashboardData.filter(row => 
+                row.Function === functionName && row.Tab === currentTab
+            );
+            
+            let insights = generateInsights(functionData, functionName);
+            
+            document.getElementById('insightsBody').innerHTML = insights;
+            document.getElementById('insightsModal').style.display = 'block';
+        }
+
+        function generateInsights(data, functionName) {
+            let insights = '';
+            
+            // Performance Analysis
+            insights += '<div class="insight-item">';
+            insights += '<div class="insight-metric">📊 Performance Overview</div>';
+            
+            let overPerforming = [];
+            let underPerforming = [];
+            let noData = [];
+            
+            data.forEach(metric => {
+                const current = parseValue(metric['Current Qtr Actual']);
+                const goal = parseValue(metric['Quarterly Goal']);
+                
+                if (current === null) {
+                    noData.push(metric.Metric);
+                } else if (goal) {
+                    const performance = metric['Goal Intent'] === 'Increase' 
+                        ? (current / goal) 
+                        : (goal / current);
+                    
+                    if (performance >= 1) {
+                        overPerforming.push({ name: metric.Metric, performance: Math.round(performance * 100) });
+                    } else {
+                        underPerforming.push({ name: metric.Metric, performance: Math.round(performance * 100) });
+                    }
+                }
+            });
+            
+            if (overPerforming.length > 0) {
+                insights += `<div style="color: #10b981; margin-bottom: 5px;">✅ Strong Performance: ${overPerforming.map(m => `${m.name} (${m.performance}%)`).join(', ')}</div>`;
+            }
+            
+            if (underPerforming.length > 0) {
+                insights += `<div style="color: #ef4444;">⚠️ Needs Attention: ${underPerforming.map(m => `${m.name} (${m.performance}%)`).join(', ')}</div>`;
+            }
+            
+            insights += '</div>';
+            
+            // Trend Analysis
+            insights += '<div class="insight-item">';
+            insights += '<div class="insight-metric">📈 Trend Analysis</div>';
+            
+            let improving = [];
+            let declining = [];
+            
+            data.forEach(metric => {
+                const current = parseValue(metric['Current Qtr Actual']);
+                const previous = parseValue(metric['Previous Period']);
+                
+                if (current !== null && previous !== null) {
+                    const change = ((current - previous) / previous) * 100;
+                    
+                    if (metric['Goal Intent'] === 'Increase') {
+                        if (change > 0) {
+                            improving.push({ name: metric.Metric, change: Math.round(change) });
+                        } else if (change < 0) {
+                            declining.push({ name: metric.Metric, change: Math.round(change) });
+                        }
+                    } else if (metric['Goal Intent'] === 'Decrease') {
+                        if (change < 0) {
+                            improving.push({ name: metric.Metric, change: Math.round(change) });
+                        } else if (change > 0) {
+                            declining.push({ name: metric.Metric, change: Math.round(change) });
+                        }
+                    }
+                }
+            });
+            
+            if (improving.length > 0) {
+                insights += `<div style="color: #10b981; margin-bottom: 5px;">📈 Improving: ${improving.map(m => `${m.name} (${m.change > 0 ? '+' : ''}${m.change}%)`).join(', ')}</div>`;
+            }
+            
+            if (declining.length > 0) {
+                insights += `<div style="color: #ef4444;">📉 Declining: ${declining.map(m => `${m.name} (${m.change > 0 ? '+' : ''}${m.change}%)`).join(', ')}</div>`;
+            }
+            
+            insights += '</div>';
+            
+            // Team Lead Notes
+            const notesData = data.filter(m => m['Note from Lead']);
+            if (notesData.length > 0) {
+                insights += '<div class="insight-item">';
+                insights += '<div class="insight-metric">💡 Team Lead Insights</div>';
+                notesData.forEach(metric => {
+                    insights += `<div style="margin-bottom: 10px;"><strong>${metric.Metric}:</strong> ${metric['Note from Lead']}</div>`;
+                });
+                insights += '</div>';
+            }
+            
+            // AI-Generated Recommendations
+            insights += '<div class="insight-item">';
+            insights += '<div class="insight-metric">🤖 AI Recommendations</div>';
+            insights += generateAIRecommendations(data, functionName);
+            insights += '</div>';
+            
+            return insights;
+        }
+
+        function generateAIRecommendations(data, functionName) {
+            let recommendations = '<ul style="margin: 0; padding-left: 20px;">';
+            
+            // Analyze overall performance
+            const performanceScores = data.map(metric => {
+                const current = parseValue(metric['Current Qtr Actual']);
+                const goal = parseValue(metric['Quarterly Goal']);
+                if (current === null || !goal) return null;
+                
+                return metric['Goal Intent'] === 'Increase' 
+                    ? (current / goal) 
+                    : (goal / current);
+            }).filter(score => score !== null);
+            
+            const avgPerformance = performanceScores.length > 0 
+                ? performanceScores.reduce((a, b) => a + b, 0) / performanceScores.length 
+                : 0;
+            
+            if (avgPerformance < 0.7) {
+                recommendations += '<li>Critical: Overall performance is significantly below target (70%). Consider immediate action plans and resource reallocation.</li>';
+            } else if (avgPerformance < 0.9) {
+                recommendations += '<li>Focus needed: Performance is below target. Review processes and identify bottlenecks.</li>';
+            } else if (avgPerformance >= 1.1) {
+                recommendations += '<li>Excellent performance! Consider raising targets or reallocating resources to underperforming areas.</li>';
+            }
+            
+            // Function-specific recommendations
+            if (functionName.includes('Customer') || functionName.includes('Support')) {
+                const npsData = data.find(m => m.Metric === 'NPS');
+                if (npsData) {
+                    const nps = parseValue(npsData['Current Qtr Actual']);
+                    if (nps < 30) {
+                        recommendations += '<li>NPS is below industry standard. Implement customer feedback loops and service improvement initiatives.</li>';
+                    }
+                }
+            }
+            
+            if (functionName.includes('Sales') || functionName.includes('GTM')) {
+                recommendations += '<li>Consider implementing lead scoring to improve conversion rates and focus on high-value opportunities.</li>';
+            }
+            
+            if (functionName.includes('Dev') || functionName.includes('Product')) {
+                recommendations += '<li>Track velocity trends and implement agile metrics to improve delivery predictability.</li>';
+            }
+            
+            if (functionName.includes('Finance')) {
+                recommendations += '<li>Monitor cash flow indicators closely and consider implementing predictive financial modeling.</li>';
+            }
+            
+            recommendations += '</ul>';
+            return recommendations;
+        }
+
+        function closeInsights() {
+            document.getElementById('insightsModal').style.display = 'none';
+        }
+
+        function getFunctionIcon(functionName) {
+            const icons = {
+                'Customer': '👥',
+                'Dev': '💻',
+                'Finance': '💰',
+                'Marketing': '📢',
+                'People': '👔',
+                'HR': '👔',
+                'Product': '📦',
+                'Professional Services': '🤝',
+                'SaaSOps': '⚙️',
+                'Sales': '💼',
+                'Support': '🎧',
+                'GTM': '🚀'
+            };
+            
+            for (let key in icons) {
+                if (functionName.includes(key)) {
+                    return icons[key];
+                }
+            }
+            return '📊';
+        }
+
+        function parseValue(value) {
+            if (value === null || value === undefined || value === '') {
+                return null;
+            }
+            
+            if (typeof value === 'number') {
+                return value;
+            }
+            
+            const stringValue = String(value);
+            const cleanValue = stringValue.replace('%', '').replace(',', '');
+            const parsed = parseFloat(cleanValue);
+            
+            return isNaN(parsed) ? null : parsed;
+        }
+
+        function formatValue(value, isPercentage) {
+            if (value === null || value === undefined) {
+                return 'N/A';
+            }
+            
+            if (isPercentage) {
+                return `${value}%`;
+            }
+            
+            if (value >= 1000000) {
+                return `${(value / 1000000).toFixed(1)}M`;
+            } else if (value >= 1000) {
+                return `${(value / 1000).toFixed(1)}K`;
+            } else if (value < 10 && value % 1 !== 0) {
+                return value.toFixed(1);
+            }
+            
+            return value.toString();
+        }
+
+        // Initialize dashboard on page load
+        window.addEventListener('DOMContentLoaded', loadDashboardData);
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('insightsModal');
+            if (event.target === modal) {
+                closeInsights();
+            }
+        });
+    </script>
+</body>
+</html>
