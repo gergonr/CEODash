@@ -180,9 +180,33 @@
             overflow: hidden;
         }
 
-        .metric-card:hover {
+        .metric-card.clickable {
+            cursor: pointer;
+        }
+
+        .metric-card.clickable:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            border-color: #2c3e50;
+        }
+
+        .metric-card:not(.clickable):hover {
             transform: translateY(-5px);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .external-link-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #2c3e50;
+            font-size: 1.2em;
+            opacity: 0.6;
+            transition: opacity 0.3s ease;
+        }
+
+        .metric-card.clickable:hover .external-link-indicator {
+            opacity: 1;
         }
 
         .metric-card::before {
@@ -580,9 +604,14 @@
         }
 
         function renderMetricCard(metric) {
+            const hasLink = metric['External Link'] && metric['External Link'].trim() !== '';
+            const clickableClass = hasLink ? 'clickable' : '';
+            const onClickAttr = hasLink ? `onclick="window.open('${metric['External Link']}', '_blank')"` : '';
+            
             if (!metric['Current Qtr Actual'] && metric['Current Qtr Actual'] !== 0) {
                 return `
-                    <div class="metric-card">
+                    <div class="metric-card ${clickableClass}" ${onClickAttr}>
+                        ${hasLink ? '<span class="external-link-indicator">🔗</span>' : ''}
                         <div class="metric-name">${metric.Metric}</div>
                         <div class="no-data">No data available</div>
                     </div>
@@ -610,7 +639,8 @@
             const trend = previous !== null ? (current > previous ? 'up' : 'down') : null;
             
             return `
-                <div class="metric-card ${status}">
+                <div class="metric-card ${status} ${clickableClass}" ${onClickAttr}>
+                    ${hasLink ? '<span class="external-link-indicator">🔗</span>' : ''}
                     <div class="metric-name">${metric.Metric}</div>
                     <div class="metric-value">
                         ${formatValue(current, isPercentage)}
@@ -671,9 +701,14 @@
         }
 
         function render4DXScoreCard(metric) {
+            const hasLink = metric['External Link'] && metric['External Link'].trim() !== '';
+            const clickableClass = hasLink ? 'clickable' : '';
+            const onClickAttr = hasLink ? `onclick="window.open('${metric['External Link']}', '_blank')"` : '';
+            
             if (!metric['Current Qtr Actual'] && metric['Current Qtr Actual'] !== 0) {
                 return `
-                    <div class="score-card">
+                    <div class="score-card ${clickableClass}" ${onClickAttr}>
+                        ${hasLink ? '<span class="external-link-indicator">🔗</span>' : ''}
                         <div class="metric-name">${metric.Metric}</div>
                         <div class="no-data">No data available</div>
                     </div>
@@ -724,7 +759,8 @@
             }
             
             return `
-                <div class="score-card ${status}">
+                <div class="score-card ${status} ${clickableClass}" ${onClickAttr} style="position: relative;">
+                    ${hasLink ? '<span class="external-link-indicator">🔗</span>' : ''}
                     <div class="score-value">${formatValue(current, isPercentage)}</div>
                     <div class="score-label">${metric.Metric}</div>
                     <div style="margin-top: 10px; font-size: 0.9em; color: #6c757d;">
