@@ -440,6 +440,11 @@
             background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(251, 191, 36, 0.05) 100%);
         }
 
+        .score-card.losing {
+            border-color: #ef4444;
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(248, 113, 113, 0.05) 100%);
+        }
+
         .score-card.clickable {
             cursor: pointer;
         }
@@ -477,6 +482,115 @@
             40% { content: '..'; }
             60%, 100% { content: '...'; }
         }
+
+        /* New styles for charts and tables */
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+            border: 1px solid #e9ecef;
+            position: relative;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .chart-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .info-icon {
+            width: 20px;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #6c757d;
+            cursor: help;
+            font-size: 0.8em;
+            font-weight: 700;
+            position: relative;
+        }
+
+        .info-tooltip {
+            display: none;
+            position: absolute;
+            top: -5px;
+            right: 30px;
+            background: #2c3e50;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            white-space: nowrap;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .info-icon:hover .info-tooltip {
+            display: block;
+        }
+
+        .chart-canvas {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .data-table th {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .data-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e9ecef;
+            color: #2c3e50;
+            font-size: 0.95em;
+        }
+
+        .data-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -509,30 +623,58 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script>
         let dashboardData = [];
+        let chartsData = [];
         let currentTab = '';
+        let chartInstances = {};
 
         // Load and parse CSV data
         async function loadDashboardData() {
             try {
-                const response = await fetch('Dashboard.csv');
-                const csvText = await response.text();
+                // Load Dashboard.csv
+                const response1 = await fetch('Dashboard.csv');
+                const csvText1 = await response1.text();
                 
-                const parsed = Papa.parse(csvText, {
+                const parsed1 = Papa.parse(csvText1, {
                     header: true,
                     dynamicTyping: true,
                     skipEmptyLines: true
                 });
                 
-                // Clean headers
-                dashboardData = parsed.data.map(row => {
+                // Clean headers for Dashboard.csv
+                dashboardData = parsed1.data.map(row => {
                     const cleanRow = {};
                     Object.keys(row).forEach(key => {
                         cleanRow[key.trim()] = row[key];
                     });
                     return cleanRow;
                 });
+                
+                // Try to load DashboardTables.csv
+                try {
+                    const response2 = await fetch('DashboardTables.csv');
+                    const csvText2 = await response2.text();
+                    
+                    const parsed2 = Papa.parse(csvText2, {
+                        header: true,
+                        dynamicTyping: true,
+                        skipEmptyLines: true
+                    });
+                    
+                    // Clean headers for DashboardTables.csv
+                    chartsData = parsed2.data.map(row => {
+                        const cleanRow = {};
+                        Object.keys(row).forEach(key => {
+                            cleanRow[key.trim()] = row[key];
+                        });
+                        return cleanRow;
+                    });
+                } catch (e) {
+                    console.log('DashboardTables.csv not found, continuing with cards only');
+                    chartsData = [];
+                }
                 
                 initializeDashboard();
             } catch (error) {
@@ -567,24 +709,31 @@
             
             // Filter data for current tab
             const tabData = dashboardData.filter(row => row.Tab === tabName);
+            const tabChartsData = chartsData.filter(row => row.Tab === tabName);
             
             // Special rendering for different tabs
             if (tabName === '4DX') {
-                render4DXTab(tabData);
+                render4DXTab(tabData, tabChartsData);
             } else if (tabName === 'Key initiatives') {
-                renderKeyInitiativesTab(tabData);
+                renderKeyInitiativesTab(tabData, tabChartsData);
             } else {
-                renderStandardTab(tabData);
+                renderStandardTab(tabData, tabChartsData);
             }
         }
 
-        function renderStandardTab(data) {
-            const functions = [...new Set(data.map(row => row.Function))].filter(Boolean);
+        function renderStandardTab(data, chartsData) {
+            // Get all functions from both datasets
+            const functionsFromCards = [...new Set(data.map(row => row.Function))].filter(Boolean);
+            const functionsFromCharts = [...new Set(chartsData.map(row => row.Function))].filter(Boolean);
+            const allFunctions = [...new Set([...functionsFromCards, ...functionsFromCharts])];
             
             let html = '';
             
-            functions.forEach(func => {
-                const functionData = data.filter(row => row.Function === func);
+            allFunctions.forEach(func => {
+                const functionCardData = data.filter(row => row.Function === func);
+                const functionChartData = chartsData.filter(row => row.Function === func);
+                
+                if (functionCardData.length === 0 && functionChartData.length === 0) return;
                 
                 html += `
                     <div class="function-section">
@@ -597,14 +746,260 @@
                                 ✨ Show Insights
                             </button>
                         </div>
-                        <div class="metrics-grid">
-                            ${functionData.map(metric => renderMetricCard(metric)).join('')}
-                        </div>
-                    </div>
                 `;
+                
+                // Render metric cards first
+                if (functionCardData.length > 0) {
+                    html += `<div class="metrics-grid">
+                        ${functionCardData.map(metric => renderMetricCard(metric)).join('')}
+                    </div>`;
+                }
+                
+                // Render charts and tables
+                if (functionChartData.length > 0) {
+                    html += renderChartsForFunction(functionChartData);
+                }
+                
+                html += '</div>';
             });
             
             document.getElementById('tabContent').innerHTML = html || '<div class="no-data">No data available for this tab</div>';
+            
+            // Initialize all charts after DOM is updated
+            setTimeout(() => {
+                initializeCharts(chartsData);
+            }, 100);
+        }
+
+        function renderChartsForFunction(chartData) {
+            // Group data by Chart name
+            const chartGroups = {};
+            chartData.forEach(row => {
+                if (!chartGroups[row.Chart]) {
+                    chartGroups[row.Chart] = [];
+                }
+                chartGroups[row.Chart].push(row);
+            });
+            
+            let html = '<div class="charts-grid">';
+            
+            Object.entries(chartGroups).forEach(([chartName, rows]) => {
+                const firstRow = rows[0];
+                const chartType = firstRow.Type || 'Line';
+                
+                html += `
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div class="chart-title">${chartName}</div>
+                            ${firstRow.Info ? `
+                                <div class="info-icon">
+                                    i
+                                    <div class="info-tooltip">${firstRow.Info}</div>
+                                </div>
+                            ` : ''}
+                        </div>
+                `;
+                
+                if (chartType === 'Table') {
+                    html += renderDataTable(rows);
+                } else {
+                    html += `<div class="chart-canvas">
+                        <canvas id="chart-${chartName.replace(/[^a-zA-Z0-9]/g, '-')}"></canvas>
+                    </div>`;
+                }
+                
+                html += '</div>';
+            });
+            
+            html += '</div>';
+            return html;
+        }
+
+        function renderDataTable(rows) {
+            // Get interval columns that have data
+            const intColumns = [];
+            for (let i = 1; i <= 13; i++) {
+                const colName = `Int${i}`;
+                if (rows.some(row => row[colName] !== null && row[colName] !== undefined)) {
+                    intColumns.push(colName);
+                }
+            }
+            
+            const intUnit = rows[0]['Int Unit'] || 'Period';
+            
+            let html = `<table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        ${intColumns.map((col, i) => `<th>${intUnit} ${i + 1}</th>`).join('')}
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+            
+            rows.forEach(row => {
+                html += '<tr>';
+                html += `<td style="font-weight: 600;">${row.Metric}</td>`;
+                intColumns.forEach(col => {
+                    const value = row[col];
+                    html += `<td>${value !== null && value !== undefined ? formatTableValue(value) : '-'}</td>`;
+                });
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            return html;
+        }
+
+        function formatTableValue(value) {
+            if (typeof value === 'number') {
+                if (value >= 1000000) {
+                    return `${(value / 1000000).toFixed(1)}M`;
+                } else if (value >= 1000) {
+                    return `${(value / 1000).toFixed(1)}K`;
+                }
+                return value.toFixed(0);
+            }
+            return value;
+        }
+
+        function initializeCharts(chartsData) {
+            // Destroy existing chart instances
+            Object.values(chartInstances).forEach(chart => chart.destroy());
+            chartInstances = {};
+            
+            // Group data by Chart name
+            const chartGroups = {};
+            chartsData.forEach(row => {
+                if (!chartGroups[row.Chart]) {
+                    chartGroups[row.Chart] = [];
+                }
+                chartGroups[row.Chart].push(row);
+            });
+            
+            Object.entries(chartGroups).forEach(([chartName, rows]) => {
+                const firstRow = rows[0];
+                const chartType = firstRow.Type || 'Line';
+                
+                if (chartType !== 'Table') {
+                    const canvasId = `chart-${chartName.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                    const canvas = document.getElementById(canvasId);
+                    
+                    if (canvas) {
+                        const ctx = canvas.getContext('2d');
+                        
+                        // Get interval data
+                        const labels = [];
+                        const datasets = [];
+                        
+                        // Find which Int columns have data
+                        const intColumns = [];
+                        for (let i = 1; i <= 13; i++) {
+                            const colName = `Int${i}`;
+                            if (rows.some(row => row[colName] !== null && row[colName] !== undefined)) {
+                                intColumns.push(colName);
+                            }
+                        }
+                        
+                        // Create labels
+                        const intUnit = firstRow['Int Unit'] || 'Period';
+                        intColumns.forEach((col, i) => {
+                            labels.push(`${intUnit} ${i + 1}`);
+                        });
+                        
+                        // Create datasets
+                        const colors = [
+                            'rgb(44, 62, 80)',
+                            'rgb(52, 152, 219)',
+                            'rgb(46, 204, 113)',
+                            'rgb(155, 89, 182)',
+                            'rgb(241, 196, 15)',
+                            'rgb(231, 76, 60)',
+                            'rgb(149, 165, 166)',
+                            'rgb(26, 188, 156)',
+                            'rgb(230, 126, 34)',
+                            'rgb(192, 57, 43)'
+                        ];
+                        
+                        rows.forEach((row, index) => {
+                            const data = intColumns.map(col => row[col]);
+                            
+                            if (chartType === 'Line Cummulative' || chartType === 'Line Cumulative') {
+                                // Calculate cumulative values
+                                let cumulative = 0;
+                                const cumulativeData = data.map(val => {
+                                    if (val !== null && val !== undefined) {
+                                        cumulative += val;
+                                        return cumulative;
+                                    }
+                                    return cumulative;
+                                });
+                                
+                                datasets.push({
+                                    label: row.Metric,
+                                    data: cumulativeData,
+                                    borderColor: colors[index % colors.length],
+                                    backgroundColor: colors[index % colors.length] + '20',
+                                    tension: 0.3,
+                                    fill: true
+                                });
+                            } else {
+                                datasets.push({
+                                    label: row.Metric,
+                                    data: data,
+                                    borderColor: colors[index % colors.length],
+                                    backgroundColor: colors[index % colors.length] + (chartType === 'Bar' ? '80' : '20'),
+                                    tension: chartType === 'Line' ? 0.3 : 0,
+                                    fill: chartType === 'Line' ? false : true
+                                });
+                            }
+                        });
+                        
+                        // Create chart
+                        const config = {
+                            type: chartType === 'Bar' ? 'bar' : 'line',
+                            data: {
+                                labels: labels,
+                                datasets: datasets
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {
+                                        display: datasets.length > 1,
+                                        position: 'bottom'
+                                    },
+                                    tooltip: {
+                                        mode: 'index',
+                                        intersect: false
+                                    }
+                                },
+                                scales: {
+                                    y: {
+                                        beginAtZero: true,
+                                        grid: {
+                                            color: 'rgba(0, 0, 0, 0.05)'
+                                        }
+                                    },
+                                    x: {
+                                        grid: {
+                                            display: false
+                                        }
+                                    }
+                                }
+                            }
+                        };
+                        
+                        if (chartType === 'Bar' && datasets.length > 1) {
+                            config.options.scales.x.stacked = true;
+                            config.options.scales.y.stacked = true;
+                        }
+                        
+                        chartInstances[canvasId] = new Chart(ctx, config);
+                    }
+                }
+            });
         }
 
         function renderMetricCard(metric) {
@@ -669,8 +1064,8 @@
             `;
         }
 
-        function render4DXTab(data) {
-            const functions = [...new Set(data.map(row => row.Function))].filter(Boolean);
+        function render4DXTab(data, chartsData) {
+            const functions = [...new Set([...data.map(row => row.Function), ...chartsData.map(row => row.Function)])].filter(Boolean);
             
             let html = `
                 <div class="wildly-important-goal">
@@ -681,6 +1076,9 @@
             
             functions.forEach(func => {
                 const functionData = data.filter(row => row.Function === func);
+                const functionChartData = chartsData.filter(row => row.Function === func);
+                
+                if (functionData.length === 0 && functionChartData.length === 0) return;
                 
                 html += `
                     <div class="function-section">
@@ -696,11 +1094,20 @@
                         <div class="scoreboard">
                             ${functionData.map(metric => render4DXScoreCard(metric)).join('')}
                         </div>
-                    </div>
                 `;
+                
+                if (functionChartData.length > 0) {
+                    html += renderChartsForFunction(functionChartData);
+                }
+                
+                html += '</div>';
             });
             
             document.getElementById('tabContent').innerHTML = html;
+            
+            setTimeout(() => {
+                initializeCharts(chartsData);
+            }, 100);
         }
 
         function render4DXScoreCard(metric) {
@@ -728,25 +1135,21 @@
                 attainment = Math.round((current / goal) * 100);
                 
                 if (metric['Goal Intent'] === 'Increase') {
-                    // For increase goals, attainment is current/goal
                     attainment = Math.round((current / goal) * 100);
                 } else if (metric['Goal Intent'] === 'Decrease') {
-                    // For decrease goals, attainment is goal/current
                     attainment = Math.round((goal / current) * 100);
                 }
                 
-                // Set status based on attainment percentage
                 if (attainment >= 100) {
-                    status = 'winning';  // Green - 100% or above
+                    status = 'winning';
                 } else if (attainment >= 70) {
-                    status = 'warning';  // Amber - 70% to 99%
+                    status = 'warning';
                 } else {
-                    status = 'losing';   // Red - Below 70%
+                    status = 'losing';
                 }
             }
             
-            // Determine color based on status
-            let statusColor = '#6c757d'; // Default gray
+            let statusColor = '#6c757d';
             let bgColor = 'rgba(108, 117, 125, 0.1)';
             
             if (status === 'winning') {
@@ -777,8 +1180,8 @@
             `;
         }
 
-        function renderKeyInitiativesTab(data) {
-            const functions = [...new Set(data.map(row => row.Function))].filter(Boolean);
+        function renderKeyInitiativesTab(data, chartsData) {
+            const functions = [...new Set([...data.map(row => row.Function), ...chartsData.map(row => row.Function)])].filter(Boolean);
             
             let html = `
                 <div class="wildly-important-goal" style="background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);">
@@ -789,6 +1192,9 @@
             
             functions.forEach(func => {
                 const functionData = data.filter(row => row.Function === func);
+                const functionChartData = chartsData.filter(row => row.Function === func);
+                
+                if (functionData.length === 0 && functionChartData.length === 0) return;
                 
                 html += `
                     <div class="function-section">
@@ -804,11 +1210,20 @@
                         <div class="metrics-grid">
                             ${functionData.map(metric => renderInitiativeCard(metric)).join('')}
                         </div>
-                    </div>
                 `;
+                
+                if (functionChartData.length > 0) {
+                    html += renderChartsForFunction(functionChartData);
+                }
+                
+                html += '</div>';
             });
             
             document.getElementById('tabContent').innerHTML = html;
+            
+            setTimeout(() => {
+                initializeCharts(chartsData);
+            }, 100);
         }
 
         function renderInitiativeCard(metric) {
@@ -971,7 +1386,6 @@
         function generateAIRecommendations(data, functionName) {
             let recommendations = '<ul style="margin: 0; padding-left: 20px;">';
             
-            // Analyze overall performance
             const performanceScores = data.map(metric => {
                 const current = parseValue(metric['Current Qtr Actual']);
                 const goal = parseValue(metric['Quarterly Goal']);
@@ -994,7 +1408,6 @@
                 recommendations += '<li>Excellent performance! Consider raising targets or reallocating resources to underperforming areas.</li>';
             }
             
-            // Function-specific recommendations
             if (functionName.includes('Customer') || functionName.includes('Support')) {
                 const npsData = data.find(m => m.Metric === 'NPS');
                 if (npsData) {
