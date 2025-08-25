@@ -1,12 +1,6 @@
 Tab,Function,Type,Metric,Goal Intent,Yearly Goal,Quarterly Goal,Current Qtr Actual,Previous Period,Note from Lead,External Link
 Busines KPIs,Customers,,Qtr Weekly revenue (avg),Increase,192307.6923,193889.7362,184294.8169,185494.9231,We increased NPS from last qtr because we fixed the main bug that was affecting the product,https://app.powerbi.com/groups/b8cd64b2-fe1c-4b6e-ba81-3d8f3f33ddb3/reports/8b15db38-79e3-4548-b963-fa62f71b3ee2/3c71610bb4f8b5cd67b7?ctid=9da2c3f9-8b02-4ec0-9576-2e2a6e939c77&experience=power-bi
-Busines KPIs,Customers,,Driver count (avg),Increase,150,150,148,147,We are struggling with response times because of volume.,
-Busines KPIs,Customers,,User count (avg),Increase,150,150,149,143,,
-Busines KPIs,Customers,,NPS,Increase,45,45,43.87,35.01,,
 Busines KPIs,Customers,,GRR,Increase,95,95,93.32,90.78,,
-Busines KPIs,Customers,,Rev per customer,Increase,150,150,154,150,,
-Busines KPIs,Customers,,Driver per customer,Increase,150,150,155,142,,
-Busines KPIs,Customers,,User per customer,Increase,150,150,145,150,,
 Busines KPIs,Customers Top20,,Weekly revenue,Increase,192307.6923,193889.7362,184294.8169,185494.9231,,
 Busines KPIs,Customers Top20,,Driver count,Increase,150,150,147,144,,
 Busines KPIs,Customers Top20,,User count,Increase,150,150,147,146,,
