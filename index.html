@@ -700,6 +700,10 @@
             color: #ef4444;
             font-weight: 600;
         }
+        
+        .data-table td.neutral {
+            color: #6c757d;
+        }
 
         .charts-grid {
             display: grid;
@@ -780,7 +784,16 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Fallback if Chart.js doesn't load from first CDN
+        if (typeof Chart === 'undefined') {
+            console.log('Loading Chart.js from fallback CDN...');
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js';
+            document.head.appendChild(script);
+        }
+    </script>
     <script>
         let dashboardData = [];
         let chartsData = [];
@@ -837,31 +850,43 @@
                     if (csvText2) {
                         const parsed2 = Papa.parse(csvText2, {
                             header: true,
-                            dynamicTyping: false, // Keep as strings initially to handle mixed types
-                            skipEmptyLines: true
+                            dynamicTyping: false, // Keep as strings initially
+                            skipEmptyLines: true,
+                            delimiter: ',' // Explicitly set delimiter
                         });
                         
                         // Clean headers and parse data properly
-                        chartsData = parsed2.data.map(row => {
+                        chartsData = parsed2.data.map((row, idx) => {
                             const cleanRow = {};
                             Object.keys(row).forEach(key => {
                                 const cleanKey = key.trim();
                                 let value = row[key];
                                 
-                                // Clean string values - especially Chart names which might have leading spaces
+                                // Clean string values
                                 if (typeof value === 'string') {
                                     value = value.trim();
+                                    // Handle empty strings
+                                    if (value === '') {
+                                        value = null;
+                                    }
                                 }
                                 
-                                // Parse numeric columns
+                                // For Int columns, preserve the original value (could be Yes/No or numbers)
+                                // We'll parse them appropriately when rendering
                                 if (cleanKey.startsWith('Int') && cleanKey !== 'Int Unit') {
+                                    // Keep original value, just clean it
                                     if (value !== null && value !== undefined && value !== '') {
+                                        // If it looks like a number, parse it
                                         const numVal = parseFloat(String(value).replace(/,/g, ''));
-                                        value = isNaN(numVal) ? null : numVal;
+                                        if (!isNaN(numVal) && !isNaN(parseFloat(value))) {
+                                            value = numVal;
+                                        }
+                                        // Otherwise keep as string (for Yes/No etc)
                                     } else {
                                         value = null;
                                     }
                                 } else if (cleanKey === 'Goal') {
+                                    // Goal should always be numeric
                                     if (value !== null && value !== undefined && value !== '') {
                                         const numVal = parseFloat(String(value).replace(/,/g, ''));
                                         value = isNaN(numVal) ? null : numVal;
@@ -874,14 +899,32 @@
                             });
                             
                             // Debug first few rows
-                            if (parsed2.data.indexOf(row) < 3) {
-                                console.log('Cleaned row:', cleanRow);
+                            if (idx < 3) {
+                                console.log(`Row ${idx}:`, cleanRow);
+                                if (cleanRow.Type === 'Table') {
+                                    console.log('  Table row - Int columns:', 
+                                        Object.keys(cleanRow).filter(k => k.startsWith('Int') && k !== 'Int Unit')
+                                            .map(k => `${k}=${cleanRow[k]}`).join(', '));
+                                }
                             }
                             
                             return cleanRow;
                         });
                         
                         console.log(`Processed ${chartsData.length} rows of chart data`);
+                        
+                        // Log sample data for debugging
+                        if (chartsData.length > 0) {
+                            console.log('\nSample chart data (first row):');
+                            const sample = chartsData[0];
+                            console.log('  Tab:', sample.Tab);
+                            console.log('  Chart:', sample.Chart);
+                            console.log('  Type:', sample.Type);
+                            console.log('  Metric:', sample.Metric);
+                            console.log('  Int1:', sample.Int1, typeof sample.Int1);
+                            console.log('  Int2:', sample.Int2, typeof sample.Int2);
+                            console.log('  Goal:', sample.Goal, typeof sample.Goal);
+                        }
                     } else {
                         console.log('DashboardTables.csv not found, continuing with cards only');
                         chartsData = [];
@@ -985,13 +1028,23 @@
             // Initialize all charts after DOM is updated
             setTimeout(() => {
                 if (chartsData && chartsData.length > 0) {
-                    console.log('Initializing charts for tab:', tabName);
+                    console.log('\n=== Initializing charts for tab:', tabName, '===');
                     // Double-check that DOM is ready
                     const canvases = document.querySelectorAll('canvas[id^="chart-"]');
                     console.log(`Found ${canvases.length} canvas elements in DOM`);
-                    initializeCharts(chartsData, tabName);
+                    if (canvases.length > 0) {
+                        console.log('Canvas IDs:', Array.from(canvases).map(c => c.id));
+                    }
+                    
+                    // Wait for Chart.js if needed
+                    if (typeof Chart === 'undefined') {
+                        console.log('Waiting for Chart.js to load...');
+                        setTimeout(() => initializeCharts(chartsData, tabName), 500);
+                    } else {
+                        initializeCharts(chartsData, tabName);
+                    }
                 }
-            }, 500); // Increased timeout to ensure DOM is ready
+            }, 300);
         }
 
         function renderChartsForFunction(chartData) {
@@ -1054,6 +1107,7 @@
                 `;
                 
                 if (chartType === 'Table') {
+                    console.log(`Rendering table for "${chartName}" with ${rows.length} rows`);
                     html += renderDataTable(rows);
                 } else {
                     // Ensure consistent canvas ID generation - remove all special chars and spaces
@@ -1073,13 +1127,36 @@
         }
 
         function renderDataTable(rows) {
+            console.log('Rendering table with rows:', rows.length);
+            
             // Get interval columns that have data
             const intColumns = [];
             for (let i = 1; i <= 13; i++) {
                 const colName = `Int${i}`;
-                if (rows.some(row => row[colName] !== null && row[colName] !== undefined)) {
+                // Check if any row has data in this column
+                const hasData = rows.some(row => {
+                    const val = row[colName];
+                    // More lenient check - include any non-empty value
+                    return val !== null && val !== undefined && val !== '' && val !== 'null';
+                });
+                
+                if (hasData) {
                     intColumns.push(colName);
+                    console.log(`  Column ${colName} has data`);
                 }
+            }
+            
+            console.log('Table columns found:', intColumns);
+            
+            // If no interval columns found, show message
+            if (intColumns.length === 0) {
+                console.warn('No interval columns with data found for table');
+                // Check what columns exist
+                if (rows.length > 0) {
+                    console.log('Available columns in first row:', Object.keys(rows[0]));
+                    console.log('First row data:', rows[0]);
+                }
+                return '<div class="no-data">No data columns found for this table</div>';
             }
             
             const intUnit = rows[0]['Int Unit'] || 'Period';
@@ -1089,85 +1166,142 @@
                     <tr>
                         <th>Metric</th>
                         ${intColumns.map((col, i) => `<th>${intUnit} ${i + 1}</th>`).join('')}
-                        ${rows.some(r => r.Goal) ? '<th>Goal</th>' : ''}
+                        ${rows.some(r => r.Goal && r.Goal > 0) ? '<th>Goal</th>' : ''}
                     </tr>
                 </thead>
                 <tbody>
             `;
             
-            rows.forEach(row => {
+            rows.forEach((row, rowIndex) => {
+                console.log(`  Row ${rowIndex} (${row.Metric}):`, intColumns.map(c => `${c}=${row[c]}`).join(', '));
+                
                 html += '<tr>';
-                html += `<td>${row.Metric}</td>`;
+                html += `<td style="font-weight: 600; color: #34495e;">${row.Metric || 'Unknown'}</td>`;
+                
                 intColumns.forEach(col => {
                     const value = row[col];
                     const goal = row.Goal;
                     let cellClass = '';
+                    let displayValue = '-';
                     
-                    // Add color coding based on goal comparison
-                    if (value !== null && value !== undefined && goal) {
-                        if (value >= goal) {
-                            cellClass = 'positive';
-                        } else if (value < goal * 0.8) {
-                            cellClass = 'negative';
+                    // Convert value for display
+                    if (value !== null && value !== undefined && value !== '' && value !== 'null') {
+                        // Handle both numeric and string values
+                        if (typeof value === 'string' && (value === 'Yes' || value === 'No')) {
+                            // For Yes/No values
+                            displayValue = value;
+                            cellClass = value === 'Yes' ? 'positive' : '';
+                        } else {
+                            // For numeric values
+                            const numVal = parseFloat(value);
+                            if (!isNaN(numVal)) {
+                                displayValue = formatTableValue(numVal);
+                                
+                                // Add color coding based on goal comparison
+                                if (goal && goal > 0) {
+                                    if (numVal >= goal) {
+                                        cellClass = 'positive';
+                                    } else if (numVal < goal * 0.8) {
+                                        cellClass = 'negative';
+                                    }
+                                }
+                            } else {
+                                // If not a number, display as-is
+                                displayValue = value;
+                            }
                         }
                     }
                     
-                    html += `<td class="${cellClass}">${value !== null && value !== undefined ? formatTableValue(value) : '-'}</td>`;
+                    html += `<td class="${cellClass}">${displayValue}</td>`;
                 });
                 
-                if (rows.some(r => r.Goal)) {
-                    html += `<td style="font-weight: 600; color: #667eea;">${row.Goal ? formatTableValue(row.Goal) : '-'}</td>`;
+                // Add goal column if any row has a goal
+                if (rows.some(r => r.Goal && r.Goal > 0)) {
+                    const goalValue = row.Goal && row.Goal > 0 ? formatTableValue(row.Goal) : '-';
+                    html += `<td style="font-weight: 600; color: #667eea;">${goalValue}</td>`;
                 }
                 
                 html += '</tr>';
             });
             
             html += '</tbody></table>';
+            
+            console.log('Table HTML generated');
             return html;
         }
 
         function formatTableValue(value) {
+            // Handle null/undefined
+            if (value === null || value === undefined || value === '') {
+                return '-';
+            }
+            
+            // Handle string values
+            if (typeof value === 'string') {
+                // Check if it's a number as string
+                const numVal = parseFloat(value.replace(/,/g, ''));
+                if (!isNaN(numVal)) {
+                    value = numVal;
+                } else {
+                    // Return string as-is (for Yes/No or other text)
+                    return value;
+                }
+            }
+            
+            // Handle boolean
+            if (typeof value === 'boolean') {
+                return value ? 'Yes' : 'No';
+            }
+            
+            // Handle numbers
             if (typeof value === 'number') {
                 if (value >= 1000000) {
                     return `${(value / 1000000).toFixed(1)}M`;
                 } else if (value >= 1000) {
                     return `${(value / 1000).toFixed(1)}K`;
+                } else if (value % 1 !== 0) {
+                    // Has decimals
+                    return value.toFixed(2);
                 }
-                return value.toFixed(0);
+                return value.toString();
             }
-            return value;
+            
+            // Default: return as string
+            return String(value);
         }
 
         function initializeCharts(chartsData, tabName) {
-            // Check if Chart.js is loaded
+            // Wait for Chart.js to be fully loaded
             if (typeof Chart === 'undefined') {
-                console.error('Chart.js is not loaded!');
+                console.error('Chart.js is not loaded! Retrying...');
+                setTimeout(() => initializeCharts(chartsData, tabName), 500);
                 return;
             }
             
+            console.log('Chart.js version:', Chart.version);
             console.log('Initializing charts for tab:', tabName);
-            console.log('Charts data length:', chartsData.length);
+            console.log('Total chart data rows:', chartsData.length);
             
             // Destroy existing chart instances
             Object.values(chartInstances).forEach(chart => {
                 if (chart && typeof chart.destroy === 'function') {
-                    chart.destroy();
+                    try {
+                        chart.destroy();
+                    } catch (e) {
+                        console.error('Error destroying chart:', e);
+                    }
                 }
             });
             chartInstances = {};
             
-            // Filter and group data by Chart name for current tab
+            // Filter data for current tab and group by Chart name
             const chartGroups = {};
-            let chartCount = 0;
             chartsData.forEach(row => {
-                // Debug each row
-                if (chartCount < 5) {
-                    console.log(`Row Tab: "${row.Tab}", Chart: "${row.Chart}", Type: "${row.Type}"`);
-                    chartCount++;
-                }
+                // More flexible tab matching
+                const rowTab = (row.Tab || '').trim();
+                const targetTab = (tabName || '').trim();
                 
-                // Only process rows for current tab
-                if (row.Chart && row.Tab === tabName) {
+                if (row.Chart && rowTab === targetTab) {
                     const chartName = row.Chart.trim();
                     if (!chartGroups[chartName]) {
                         chartGroups[chartName] = [];
@@ -1176,322 +1310,224 @@
                 }
             });
             
-            console.log('Chart groups found:', Object.keys(chartGroups));
-            console.log('Chart groups details:');
-            Object.entries(chartGroups).forEach(([name, rows]) => {
-                console.log(`  "${name}" (${name.length} chars): ${rows.length} rows`);
-            });
+            console.log(`Charts to create for tab "${tabName}":`, Object.keys(chartGroups));
+            if (Object.keys(chartGroups).length === 0) {
+                console.log('Available tabs in data:', [...new Set(chartsData.map(r => r.Tab))]);
+            }
             
+            // Process each chart group
             Object.entries(chartGroups).forEach(([chartName, rows]) => {
-                const firstRow = rows[0];
-                const chartType = (firstRow.Type || 'Line').trim();
-                const cleanChartName = chartName.trim();
-                
-                console.log(`Processing chart: ${cleanChartName}, Type: "${chartType}", Rows: ${rows.length}`);
-                
-                if (chartType !== 'Table') {
-                    // Use same ID generation as renderChartsForFunction
-                    const cleanName = cleanChartName.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-                    const canvasId = `chart-${cleanName}`;
-                    console.log(`Looking for canvas: "${canvasId}" for chart: "${cleanChartName}"`);
-                    const canvas = document.getElementById(canvasId);
+                try {
+                    const firstRow = rows[0];
+                    const chartType = (firstRow.Type || 'Line').trim();
                     
-                    if (canvas) {
-                        console.log('Canvas found, creating chart');
-                        try {
-                            const ctx = canvas.getContext('2d');
-                            
-                            // Get interval data - parse all values as numbers
-                            const labels = [];
-                            const datasets = [];
-                            
-                            // Find which Int columns have data
-                            const intColumns = [];
-                            for (let i = 1; i <= 13; i++) {
-                                const colName = `Int${i}`;
-                                if (rows.some(row => {
-                                    const val = row[colName];
-                                    return val !== null && val !== undefined && val !== '' && !isNaN(parseFloat(val));
-                                })) {
-                                    intColumns.push(colName);
-                                }
-                            }
-                            
-                            console.log('Int columns with data:', intColumns);
-                            
-                            // If no data columns found, skip this chart
-                            if (intColumns.length === 0) {
-                                console.warn(`No data found for chart: ${cleanChartName}`);
-                                return;
-                            }
-                            
-                            // Create labels
-                            const intUnit = firstRow['Int Unit'] || 'Period';
-                            intColumns.forEach((col, i) => {
-                                labels.push(`${intUnit} ${i + 1}`);
-                            });
-                            
-                            // Enhanced color palette
-                            const colors = [
-                                'rgb(99, 102, 241)',    // Indigo
-                                'rgb(34, 197, 94)',     // Green
-                                'rgb(251, 146, 60)',    // Orange
-                                'rgb(168, 85, 247)',    // Purple
-                                'rgb(14, 165, 233)',    // Sky Blue
-                                'rgb(236, 72, 153)',    // Pink
-                                'rgb(250, 204, 21)',    // Yellow
-                                'rgb(20, 184, 166)',    // Teal
-                                'rgb(239, 68, 68)',     // Red
-                                'rgb(107, 114, 128)'    // Gray
-                            ];
-                            
-                            // Process data for each metric
-                            rows.forEach((row, index) => {
-                                // Parse data values, handling various formats
-                                const data = intColumns.map(col => {
-                                    const val = row[col];
-                                    if (val === null || val === undefined || val === '') {
-                                        return null;
-                                    }
-                                    return parseFloat(val);
-                                });
-                                
-                                console.log(`Data for ${row.Metric}:`, data);
-                                
-                                // Check if we have any valid data points
-                                const hasValidData = data.some(d => d !== null && !isNaN(d));
-                                if (!hasValidData) {
-                                    console.warn(`No valid data for metric: ${row.Metric}`);
-                                    return;
-                                }
-                                
-                                const color = colors[index % colors.length];
-                                
-                                if (chartType === 'Line Cumulative' || chartType === 'Line Cummulative') {
-                                    // Calculate cumulative values for line
-                                    let cumulative = 0;
-                                    const cumulativeData = data.map(val => {
-                                        if (val !== null && !isNaN(val)) {
-                                            cumulative += val;
-                                        }
-                                        return cumulative;
-                                    });
-                                    
-                                    datasets.push({
-                                        label: row.Metric,
-                                        data: cumulativeData,
-                                        borderColor: color,
-                                        backgroundColor: color + '20',
-                                        borderWidth: 3,
-                                        tension: 0.4,
-                                        fill: true,
-                                        pointRadius: 5,
-                                        pointHoverRadius: 7,
-                                        pointBackgroundColor: 'white',
-                                        pointBorderColor: color,
-                                        pointBorderWidth: 2
-                                    });
-                                } else if (chartType === 'Bar Cumulative' || chartType === 'Bar Cummulative') {
-                                    // Calculate cumulative values for bar
-                                    let cumulative = 0;
-                                    const cumulativeData = data.map(val => {
-                                        if (val !== null && !isNaN(val)) {
-                                            cumulative += val;
-                                        }
-                                        return cumulative;
-                                    });
-                                    
-                                    datasets.push({
-                                        label: row.Metric,
-                                        data: cumulativeData,
-                                        backgroundColor: color + '80',
-                                        borderColor: color,
-                                        borderWidth: 2,
-                                        borderRadius: 8,
-                                        barThickness: rows.length > 1 ? undefined : 40
-                                    });
-                                } else if (chartType === 'Bar') {
-                                    datasets.push({
-                                        label: row.Metric,
-                                        data: data,
-                                        backgroundColor: color + '80',
-                                        borderColor: color,
-                                        borderWidth: 2,
-                                        borderRadius: 8,
-                                        barThickness: rows.length > 1 ? undefined : 40
-                                    });
-                                } else {
-                                    // Line chart (default)
-                                    datasets.push({
-                                        label: row.Metric,
-                                        data: data,
-                                        borderColor: color,
-                                        backgroundColor: color + '20',
-                                        borderWidth: 3,
-                                        tension: 0.4,
-                                        fill: false,
-                                        pointRadius: 5,
-                                        pointHoverRadius: 7,
-                                        pointBackgroundColor: 'white',
-                                        pointBorderColor: color,
-                                        pointBorderWidth: 2
-                                    });
-                                }
-                            });
-                            
-                            // Add goal line if exists
-                            const goalDatasets = [];
-                            rows.forEach((row, index) => {
-                                if (row.Goal && row.Goal > 0) {
-                                    const goalData = intColumns.map(() => row.Goal);
-                                    goalDatasets.push({
-                                        label: `${row.Metric} Goal`,
-                                        data: goalData,
-                                        borderColor: 'rgba(156, 163, 175, 0.5)',
-                                        backgroundColor: 'transparent',
-                                        borderWidth: 2,
-                                        borderDash: [10, 5],
-                                        pointRadius: 0,
-                                        pointHoverRadius: 0,
-                                        fill: false,
-                                        tension: 0
-                                    });
-                                }
-                            });
-                            
-                            // Combine datasets with goal lines
-                            const allDatasets = [...datasets, ...goalDatasets];
-                            
-                            // Check if we have valid datasets
-                            if (allDatasets.length === 0) {
-                                console.warn(`No valid datasets for chart: ${cleanChartName}`);
-                                return;
-                            }
-                            
-                            console.log('Creating chart with datasets:', allDatasets.length);
-                            
-                            // Create chart configuration
-                            const isBarChart = chartType.includes('Bar');
-                            const isCumulative = chartType.includes('Cumulative') || chartType.includes('Cummulative');
-                            
-                            const config = {
-                                type: isBarChart ? 'bar' : 'line',
-                                data: {
-                                    labels: labels,
-                                    datasets: allDatasets
-                                },
-                                options: {
-                                    responsive: true,
-                                    maintainAspectRatio: false,
-                                    animation: {
-                                        duration: 1500,
-                                        easing: 'easeInOutQuart'
-                                    },
-                                    interaction: {
-                                        mode: 'index',
-                                        intersect: false
-                                    },
-                                    plugins: {
-                                        legend: {
-                                            display: allDatasets.length > 1,
-                                            position: 'bottom',
-                                            labels: {
-                                                padding: 15,
-                                                usePointStyle: true,
-                                                font: {
-                                                    size: 11,
-                                                    weight: '600'
-                                                },
-                                                filter: function(item) {
-                                                    // Hide goal lines from legend if there are many datasets
-                                                    if (allDatasets.length > 4 && item.text.includes('Goal')) {
-                                                        return false;
-                                                    }
-                                                    return true;
-                                                }
-                                            }
-                                        },
-                                        tooltip: {
-                                            backgroundColor: 'rgba(44, 62, 80, 0.95)',
-                                            titleColor: 'white',
-                                            bodyColor: 'white',
-                                            borderColor: 'rgba(255, 255, 255, 0.1)',
-                                            borderWidth: 1,
-                                            padding: 12,
-                                            displayColors: true,
-                                            mode: 'index',
-                                            intersect: false,
-                                            callbacks: {
-                                                label: function(context) {
-                                                    let label = context.dataset.label || '';
-                                                    if (label) {
-                                                        label += ': ';
-                                                    }
-                                                    if (context.parsed.y !== null) {
-                                                        label += formatTableValue(context.parsed.y);
-                                                    }
-                                                    return label;
-                                                }
-                                            }
-                                        }
-                                    },
-                                    scales: {
-                                        y: {
-                                            beginAtZero: true,
-                                            grid: {
-                                                color: 'rgba(0, 0, 0, 0.05)',
-                                                drawBorder: false
-                                            },
-                                            ticks: {
-                                                font: {
-                                                    size: 11,
-                                                    weight: '500'
-                                                },
-                                                color: 'rgba(44, 62, 80, 0.7)',
-                                                callback: function(value) {
-                                                    return formatTableValue(value);
-                                                }
-                                            }
-                                        },
-                                        x: {
-                                            grid: {
-                                                display: false,
-                                                drawBorder: false
-                                            },
-                                            ticks: {
-                                                font: {
-                                                    size: 11,
-                                                    weight: '500'
-                                                },
-                                                color: 'rgba(44, 62, 80, 0.7)'
-                                            }
-                                        }
-                                    }
-                                }
-                            };
-                            
-                            // Apply stacking for bar charts with multiple metrics (but not for cumulative)
-                            if (isBarChart && rows.length > 1 && !isCumulative) {
-                                config.options.scales.x.stacked = true;
-                                config.options.scales.y.stacked = true;
-                            }
-                            
-                            // Create the chart
-                            if (typeof Chart !== 'undefined') {
-                                chartInstances[canvasId] = new Chart(ctx, config);
-                                console.log('Chart created successfully for:', cleanChartName);
-                            } else {
-                                console.error('Chart.js not available');
-                            }
-                            
-                        } catch (error) {
-                            console.error(`Error creating chart ${cleanChartName}:`, error);
-                        }
-                    } else {
-                        console.error('Canvas not found for chart:', cleanChartName);
+                    console.log(`\nProcessing: "${chartName}"`);
+                    console.log(`  Type: "${chartType}"`);
+                    console.log(`  Rows: ${rows.length}`);
+                    
+                    // Skip tables
+                    if (chartType === 'Table') {
+                        console.log('  Skipping - is a table');
+                        return;
                     }
+                    
+                    // Generate canvas ID same way as in render function
+                    const cleanName = chartName.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                    const canvasId = `chart-${cleanName}`;
+                    console.log(`  Canvas ID: "${canvasId}"`);
+                    
+                    const canvas = document.getElementById(canvasId);
+                    if (!canvas) {
+                        console.error(`  ERROR: Canvas not found!`);
+                        // List all canvas elements for debugging
+                        const allCanvases = document.querySelectorAll('canvas');
+                        console.log('  Available canvases:', Array.from(allCanvases).map(c => c.id));
+                        return;
+                    }
+                    
+                    console.log('  Canvas found, getting context...');
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                        console.error('  ERROR: Could not get canvas context');
+                        return;
+                    }
+                    
+                    // Prepare chart data
+                    const chartData = prepareChartData(rows, chartType);
+                    if (!chartData) {
+                        console.error('  ERROR: Could not prepare chart data');
+                        return;
+                    }
+                    
+                    console.log('  Labels:', chartData.labels);
+                    console.log('  Datasets:', chartData.datasets.length);
+                    
+                    // Determine chart type for Chart.js
+                    let chartJsType = 'line';
+                    if (chartType.includes('Bar')) {
+                        chartJsType = 'bar';
+                    }
+                    
+                    // Create simple chart configuration
+                    const config = {
+                        type: chartJsType,
+                        data: chartData,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: chartData.datasets.length > 1
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    };
+                    
+                    // Apply stacking for multi-series bar charts
+                    if (chartJsType === 'bar' && rows.length > 1 && !chartType.includes('Cumulative')) {
+                        config.options.scales.x = { stacked: true };
+                        config.options.scales.y = { stacked: true, beginAtZero: true };
+                    }
+                    
+                    console.log('  Creating chart...');
+                    
+                    // Create the chart
+                    try {
+                        chartInstances[canvasId] = new Chart(ctx, config);
+                        console.log('  ✓ Chart created successfully!');
+                    } catch (chartError) {
+                        console.error('  ERROR creating chart:', chartError);
+                    }
+                    
+                } catch (error) {
+                    console.error(`Error processing chart "${chartName}":`, error);
                 }
             });
+            
+            console.log('\nChart initialization complete');
+            console.log('Created charts:', Object.keys(chartInstances));
+        }
+        
+        function prepareChartData(rows, chartType) {
+            try {
+                // Find data columns (Int1, Int2, etc.)
+                const intColumns = [];
+                for (let i = 1; i <= 13; i++) {
+                    const colName = `Int${i}`;
+                    // Check if any row has data in this column
+                    const hasData = rows.some(row => {
+                        const val = row[colName];
+                        return val !== null && val !== undefined && val !== '' && !isNaN(parseFloat(val));
+                    });
+                    if (hasData) {
+                        intColumns.push(colName);
+                    }
+                }
+                
+                console.log('    Data columns found:', intColumns);
+                
+                if (intColumns.length === 0) {
+                    console.error('    No data columns with valid data');
+                    return null;
+                }
+                
+                // Create labels
+                const intUnit = rows[0]['Int Unit'] || 'Period';
+                const labels = intColumns.map((col, i) => `${intUnit} ${i + 1}`);
+                
+                // Colors for datasets
+                const colors = [
+                    'rgb(99, 102, 241)',    // Indigo
+                    'rgb(34, 197, 94)',     // Green  
+                    'rgb(251, 146, 60)',    // Orange
+                    'rgb(168, 85, 247)',    // Purple
+                    'rgb(14, 165, 233)',    // Sky Blue
+                    'rgb(236, 72, 153)',    // Pink
+                    'rgb(250, 204, 21)',    // Yellow
+                    'rgb(20, 184, 166)',    // Teal
+                    'rgb(239, 68, 68)',     // Red
+                    'rgb(107, 114, 128)'    // Gray
+                ];
+                
+                // Create datasets
+                const datasets = [];
+                
+                rows.forEach((row, index) => {
+                    // Get data for this row
+                    let data = intColumns.map(col => {
+                        const val = row[col];
+                        if (val === null || val === undefined || val === '') {
+                            return null;
+                        }
+                        const numVal = parseFloat(val);
+                        return isNaN(numVal) ? null : numVal;
+                    });
+                    
+                    console.log(`    Dataset ${index} (${row.Metric}):`, data);
+                    
+                    // Handle cumulative charts
+                    if (chartType.includes('Cumulative') || chartType.includes('Cummulative')) {
+                        let cumulative = 0;
+                        data = data.map(val => {
+                            if (val !== null) {
+                                cumulative += val;
+                            }
+                            return cumulative;
+                        });
+                        console.log(`    Cumulative data:`, data);
+                    }
+                    
+                    const color = colors[index % colors.length];
+                    
+                    // Create dataset based on chart type
+                    const dataset = {
+                        label: row.Metric,
+                        data: data,
+                        borderColor: color,
+                        backgroundColor: chartType.includes('Bar') ? color + '80' : color + '20',
+                    };
+                    
+                    // Add line-specific properties
+                    if (!chartType.includes('Bar')) {
+                        dataset.tension = 0.3;
+                        dataset.fill = chartType.includes('Cumulative');
+                        dataset.pointRadius = 4;
+                        dataset.borderWidth = 2;
+                    }
+                    
+                    datasets.push(dataset);
+                });
+                
+                // Add goal lines if they exist
+                rows.forEach((row, index) => {
+                    if (row.Goal && row.Goal > 0) {
+                        const goalData = intColumns.map(() => row.Goal);
+                        datasets.push({
+                            label: `${row.Metric} Goal`,
+                            data: goalData,
+                            borderColor: 'rgba(156, 163, 175, 0.5)',
+                            borderDash: [5, 5],
+                            fill: false,
+                            pointRadius: 0,
+                            borderWidth: 1
+                        });
+                    }
+                });
+                
+                return {
+                    labels: labels,
+                    datasets: datasets
+                };
+                
+            } catch (error) {
+                console.error('Error preparing chart data:', error);
+                return null;
+            }
         }
 
         function renderMetricCard(metric) {
@@ -1599,12 +1635,21 @@
             
             setTimeout(() => {
                 if (chartsData && chartsData.length > 0) {
-                    console.log('Initializing charts for 4DX tab');
+                    console.log('\n=== Initializing charts for 4DX tab ===');
                     const canvases = document.querySelectorAll('canvas[id^="chart-"]');
                     console.log(`Found ${canvases.length} canvas elements in DOM`);
-                    initializeCharts(chartsData, '4DX');
+                    if (canvases.length > 0) {
+                        console.log('Canvas IDs:', Array.from(canvases).map(c => c.id));
+                    }
+                    
+                    if (typeof Chart === 'undefined') {
+                        console.log('Waiting for Chart.js to load...');
+                        setTimeout(() => initializeCharts(chartsData, '4DX'), 500);
+                    } else {
+                        initializeCharts(chartsData, '4DX');
+                    }
                 }
-            }, 500);
+            }, 300);
         }
 
         function render4DXScoreCard(metric) {
@@ -1720,12 +1765,21 @@
             
             setTimeout(() => {
                 if (chartsData && chartsData.length > 0) {
-                    console.log('Initializing charts for Key initiatives tab');
+                    console.log('\n=== Initializing charts for Key initiatives tab ===');
                     const canvases = document.querySelectorAll('canvas[id^="chart-"]');
                     console.log(`Found ${canvases.length} canvas elements in DOM`);
-                    initializeCharts(chartsData, 'Key initiatives');
+                    if (canvases.length > 0) {
+                        console.log('Canvas IDs:', Array.from(canvases).map(c => c.id));
+                    }
+                    
+                    if (typeof Chart === 'undefined') {
+                        console.log('Waiting for Chart.js to load...');
+                        setTimeout(() => initializeCharts(chartsData, 'Key initiatives'), 500);
+                    } else {
+                        initializeCharts(chartsData, 'Key initiatives');
+                    }
                 }
-            }, 500);
+            }, 300);
         }
 
         function renderInitiativeCard(metric) {
@@ -2001,7 +2055,26 @@
         }
 
         // Initialize dashboard on page load
-        window.addEventListener('DOMContentLoaded', loadDashboardData);
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM Content Loaded');
+            
+            // Check if Chart.js is available
+            let chartCheckCount = 0;
+            const checkChartJs = setInterval(() => {
+                chartCheckCount++;
+                if (typeof Chart !== 'undefined') {
+                    console.log('Chart.js loaded successfully, version:', Chart.version);
+                    clearInterval(checkChartJs);
+                    loadDashboardData();
+                } else if (chartCheckCount > 20) {
+                    console.error('Chart.js failed to load after 10 seconds');
+                    clearInterval(checkChartJs);
+                    loadDashboardData(); // Try anyway
+                } else {
+                    console.log('Waiting for Chart.js...');
+                }
+            }, 500);
+        });
 
         // Close modal when clicking outside
         window.addEventListener('click', function(event) {
@@ -2010,6 +2083,169 @@
                 closeInsights();
             }
         });
+        
+        // Debug function to manually test chart creation
+        window.testChart = function() {
+            console.log('\n=== Manual Chart Test ===');
+            console.log('Chart.js available:', typeof Chart !== 'undefined');
+            if (typeof Chart !== 'undefined') {
+                console.log('Chart.js version:', Chart.version);
+            }
+            
+            // Find first canvas
+            const canvas = document.querySelector('canvas[id^="chart-"]');
+            if (!canvas) {
+                console.error('No canvas found');
+                return;
+            }
+            
+            console.log('Testing with canvas:', canvas.id);
+            const ctx = canvas.getContext('2d');
+            
+            // Create simple test chart
+            try {
+                const testChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+                        datasets: [{
+                            label: 'Test Data',
+                            data: [12, 19, 3, 5, 2],
+                            borderColor: 'rgb(75, 192, 192)',
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false
+                    }
+                });
+                console.log('✓ Test chart created successfully!');
+                return testChart;
+            } catch (error) {
+                console.error('Failed to create test chart:', error);
+            }
+        };
+        
+        // Debug function to show chart data
+        window.showChartData = function() {
+            console.log('\n=== Chart Data Debug ===');
+            console.log('Charts data array:', chartsData);
+            console.log('Current tab:', currentTab);
+            
+            if (chartsData && chartsData.length > 0) {
+                const tabData = chartsData.filter(row => row.Tab === currentTab);
+                console.log(`Data for current tab (${currentTab}):`, tabData);
+                
+                // Group by chart
+                const groups = {};
+                tabData.forEach(row => {
+                    if (row.Chart) {
+                        const name = row.Chart.trim();
+                        if (!groups[name]) groups[name] = [];
+                        groups[name].push(row);
+                    }
+                });
+                
+                console.log('Grouped data:', groups);
+            }
+        };
+        
+        // Debug function to check table data specifically
+        window.showTableData = function() {
+            console.log('\n=== Table Data Debug ===');
+            
+            if (!chartsData || chartsData.length === 0) {
+                console.log('No chart data loaded');
+                return;
+            }
+            
+            const tableData = chartsData.filter(row => row.Type === 'Table');
+            console.log(`Found ${tableData.length} table rows`);
+            
+            if (tableData.length > 0) {
+                // Group by Chart name
+                const tableGroups = {};
+                tableData.forEach(row => {
+                    const chartName = row.Chart ? row.Chart.trim() : 'Unknown';
+                    if (!tableGroups[chartName]) {
+                        tableGroups[chartName] = [];
+                    }
+                    tableGroups[chartName].push(row);
+                });
+                
+                Object.entries(tableGroups).forEach(([name, rows]) => {
+                    console.log(`\nTable: "${name}"`);
+                    console.log(`Rows: ${rows.length}`);
+                    
+                    // Show first row details
+                    if (rows.length > 0) {
+                        const firstRow = rows[0];
+                        console.log('First row data:');
+                        console.log('  Metric:', firstRow.Metric);
+                        console.log('  Int Unit:', firstRow['Int Unit']);
+                        
+                        // Show all Int columns
+                        for (let i = 1; i <= 13; i++) {
+                            const val = firstRow[`Int${i}`];
+                            if (val !== null && val !== undefined && val !== '') {
+                                console.log(`  Int${i}:`, val, `(type: ${typeof val})`);
+                            }
+                        }
+                        
+                        console.log('  Goal:', firstRow.Goal);
+                    }
+                });
+            } else {
+                console.log('No tables found. Available Types:', 
+                    [...new Set(chartsData.map(r => r.Type))].filter(Boolean));
+            }
+        };
+        
+        // Test function to check table rendering
+        window.testTable = function() {
+            console.log('\n=== Table Rendering Test ===');
+            
+            // Find table data
+            const tableData = chartsData.filter(row => row.Type === 'Table');
+            if (tableData.length === 0) {
+                console.log('No table data found');
+                console.log('Available types:', [...new Set(chartsData.map(r => r.Type))]);
+                return;
+            }
+            
+            // Group by Chart name
+            const tableGroups = {};
+            tableData.forEach(row => {
+                const chartName = row.Chart ? row.Chart.trim() : 'Unknown';
+                if (!tableGroups[chartName]) {
+                    tableGroups[chartName] = [];
+                }
+                tableGroups[chartName].push(row);
+            });
+            
+            // Take first table
+            const firstTableName = Object.keys(tableGroups)[0];
+            const firstTableRows = tableGroups[firstTableName];
+            
+            console.log(`Testing table: "${firstTableName}" with ${firstTableRows.length} rows`);
+            console.log('First row:', firstTableRows[0]);
+            
+            // Test rendering
+            const html = renderDataTable(firstTableRows);
+            console.log('Generated HTML length:', html.length);
+            
+            // Create a test div to show it
+            const testDiv = document.createElement('div');
+            testDiv.innerHTML = html;
+            testDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border: 2px solid #333; z-index: 10000; max-width: 80%; overflow: auto;';
+            document.body.appendChild(testDiv);
+            
+            console.log('Test table displayed. Click to remove.');
+            testDiv.onclick = () => testDiv.remove();
+            
+            return testDiv;
+        };
     </script>
 </body>
 </html>
